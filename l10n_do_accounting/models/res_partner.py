@@ -48,9 +48,10 @@ class Partner(models.Model):
         store=True,
     )
     country_id = fields.Many2one(
+        comodel_name="res.country",
         default=lambda self: self.env.ref("base.do")
-        if self.env.user.company_id.country_id == self.env.ref("base.do")
-        else False
+        if self.env.company.country_id == self.env.ref("base.do")
+        else False,
     )
 
     def _check_l10n_do_fiscal_fields(self, vals):

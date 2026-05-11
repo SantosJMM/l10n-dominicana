@@ -150,7 +150,7 @@
 
         <t t-set="l10n_do_amounts" t-value="o._get_l10n_do_amounts()"/>
 
-        <t t-foreach="tax_totals['subtotals']" t-as="subtotal">
+        <t t-if="tax_totals" t-foreach="tax_totals['subtotals']" t-as="subtotal">
             <tr class="border-black o_subtotal">
                 <td>
                     <strong t-out="subtotal['name']"/>
@@ -159,7 +159,8 @@
                 <td class="text-end">
                     <span
                         t-att-class="oe_subtotal_footer_separator"
-                        t-out="subtotal['formatted_amount']"
+                        t-out="subtotal['base_amount_currency']"
+                        t-options='{"widget": "monetary", "display_currency": currency}'
                     />
                 </td>
             </tr>
@@ -249,7 +250,6 @@
         </t>
 
         <t t-set="address" position="replace"/>
-        <xpath expr="//h2" position="replace"/>
 
         <!-- replace information section and use dominican style -->
         <div id="informations" position="replace">
@@ -325,7 +325,10 @@
 
         <xpath expr="//div[@id='total']/div/table/t[@t-call='account.document_tax_totals']"
                position="replace">
-            <t t-call="l10n_do_accounting.document_tax_totals"/>
+            <t t-if="o.tax_totals" t-call="l10n_do_accounting.document_tax_totals">
+                <t t-set="tax_totals" t-value="o.tax_totals"/>
+                <t t-set="currency" t-value="o.currency_id"/>
+            </t>
         </xpath>
 
     </template>

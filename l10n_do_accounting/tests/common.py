@@ -1,19 +1,22 @@
-from odoo.tests.common import Form
+from odoo import Command
+from odoo.tests import Form
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 
 
 class L10nDOTestsCommon(AccountTestInvoicingCommon):
-    @classmethod
-    def setUpClass(cls, chart_template_ref="do"):
-        super(L10nDOTestsCommon, cls).setUpClass(chart_template_ref=chart_template_ref)
+    chart_template = "do"
+    country_code = "DO"
 
-        cls.do_company = cls.setup_company_data(
-            "INDEXA SRL",
-            chart_template=chart_template_ref,
-            vat="131793916",
-            street="dummy address",
-            country_id=cls.env.ref("base.do").id,
-        )["company"]
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.do_company = cls.env.company
+        cls.do_company.write({
+            "name": "INDEXA SRL",
+            "vat": "131793916",
+            "street": "dummy address",
+        })
 
         # multi-currency variables
         cls.usd_currency = cls.env.ref("base.USD")
@@ -81,7 +84,7 @@ class L10nDOTestsCommon(AccountTestInvoicingCommon):
                 "name": "Product - Service",
                 "lst_price": 100,
                 "type": "service",
-                "taxes_id": [(4, cls.do_company.account_sale_tax_id.id)],
+                "taxes_id": [Command.set([cls.do_company.account_sale_tax_id.id])],
             }
         )
         cls.do_document_type = {

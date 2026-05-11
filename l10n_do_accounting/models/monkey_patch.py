@@ -5,7 +5,7 @@ class AccountMove(models.Model):
     _inherit = "account.move"
 
     @api.depends(
-        "posted_before", "state", "journal_id", "date", "move_type", "payment_id"
+        "posted_before", "state", "journal_id", "date", "move_type", "origin_payment_id"
     )
     def _compute_name(self):
         self = self.sorted(lambda m: (m.date, m.ref or "", m._origin.id))
@@ -15,23 +15,12 @@ class AccountMove(models.Model):
                 continue
 
             move_has_name = move.name and move.name != "/"
-            if move_has_name or move.state != "posted":
-                if not move.posted_before and not move._sequence_matches_date():
-                    if move._get_last_sequence():
-                        move.name = False
-                        continue
-                else:
-                    if (
-                        move_has_name
-                        and move.posted_before
-                        or not move_has_name
-                        and move._get_last_sequence()
-                    ):
-                        continue
-            if move.date and (not move_has_name or not move._sequence_matches_date()):
+            if not move.posted_before and not move._sequence_matches_date():
+                move.name = False
+                continue
+            if move.date and not move_has_name and move.state != "draft":
                 move._set_next_sequence()
 
-        self.filtered(lambda m: not m.name and not move.quick_edit_mode).name = "/"
         self._inverse_name()
 
         for move in self.filtered(

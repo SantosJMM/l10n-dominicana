@@ -16,24 +16,28 @@ class AccountMoveLine(models.Model):
     def _compute_totals(self):
         super(AccountMoveLine, self)._compute_totals()
         for line in self:
-            if line.display_type != "product":
+            if line.display_type not in ("product", "cogs"):
                 line.l10n_do_itbis_amount = False
+                continue
 
-            if line.move_id.is_ecf_invoice:
-                line_itbis_taxes = line.tax_ids.filtered(
-                    lambda t: t.tax_group_id
-                    == self.env.ref("account.%s_tax_group_itbis" % line.company_id.id)
-                )
-                price_unit = line.price_unit
-                if line.discount:
-                    price_unit = price_unit - (price_unit * (line.discount / 100))
-                itbis_taxes_data = line_itbis_taxes.compute_all(
-                    price_unit=price_unit,
-                    quantity=line.quantity,
-                )
-                line.l10n_do_itbis_amount = sum(
-                    [t["amount"] for t in itbis_taxes_data["taxes"]]
-                )
+            if not line.move_id or not line.move_id.is_ecf_invoice:
+                line.l10n_do_itbis_amount = False
+                continue
+
+            line_itbis_taxes = line.tax_ids.filtered(
+                lambda t: t.tax_group_id
+                == self.env.ref("account.%s_tax_group_itbis" % line.company_id.id)
+            )
+            price_unit = line.price_unit
+            if line.discount:
+                price_unit = price_unit - (price_unit * (line.discount / 100))
+            itbis_taxes_data = line_itbis_taxes.compute_all(
+                price_unit=price_unit,
+                quantity=line.quantity,
+            )
+            line.l10n_do_itbis_amount = sum(
+                [t["amount"] for t in itbis_taxes_data["taxes"]]
+            )
 
     def _get_l10n_do_line_amounts(self):
         group_itbis = self.env.ref("account.%s_tax_group_itbis" % self.company_id.id)

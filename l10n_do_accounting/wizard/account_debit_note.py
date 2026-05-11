@@ -1,4 +1,4 @@
-from odoo import models, fields, api, _
+from odoo import models, fields, api, _, Command
 from odoo.exceptions import UserError, AccessError
 
 
@@ -171,7 +171,7 @@ class AccountDebitNote(models.TransientModel):
                     l10n_do_expense_type=move.l10n_do_expense_type,
                     l10n_do_income_type=move.l10n_do_income_type,
                     invoice_origin=move.name,
-                    line_ids=[(5, 0, 0)],
+                    line_ids=[Command.clear()],
                     l10n_do_fiscal_number=move.name,
                 )
             )
@@ -179,16 +179,11 @@ class AccountDebitNote(models.TransientModel):
             origin_invoice_id = self.move_ids or self.env["account.move"].browse(
                 self.env.context.get("active_ids")
             )
+            tax_id = origin_invoice_id._get_debit_line_tax(res["invoice_date"])
             taxes = (
-                [
-                    (
-                        6,
-                        0,
-                        [origin_invoice_id._get_debit_line_tax(res["invoice_date"]).id],
-                    )
-                ]
-                if self.l10n_do_debit_type
-                else [(5, 0)]
+                [Command.set([tax_id.id])]
+                if self.l10n_do_debit_type and tax_id
+                else [Command.clear()]
             )
             price_unit = (
                 self.l10n_do_amount
@@ -196,15 +191,13 @@ class AccountDebitNote(models.TransientModel):
                 else origin_invoice_id.amount_untaxed * (self.l10n_do_percentage / 100)
             )
             res["invoice_line_ids"] = [
-                (
-                    0,
-                    0,
+                Command.create(
                     {
                         "name": self.reason or _("Debit"),
                         "price_unit": price_unit,
                         "quantity": 1,
                         "tax_ids": taxes,
-                    },
+                    }
                 )
             ]
 

@@ -1,5 +1,5 @@
 import re
-from werkzeug import urls
+from urllib.parse import quote_plus
 
 from odoo import models, fields, api, _
 from odoo.osv import expression
@@ -173,13 +173,13 @@ class AccountMove(models.Model):
                 WHERE (l10n_latam_document_type_id IS NOT NULL
                 AND move_type NOT IN ('in_invoice', 'in_refund'))
                 AND l10n_do_fiscal_number <> '';
-                
+
                 CREATE UNIQUE INDEX account_move_unique_l10n_do_fiscal_number_purchase_manual
                 ON account_move(l10n_do_fiscal_number, commercial_partner_id, company_id)
                 WHERE (l10n_latam_document_type_id IS NOT NULL AND move_type IN ('in_invoice', 'in_refund')
                 AND l10n_latam_manual_document_number = 't')
                 AND l10n_do_fiscal_number <> '';
-                
+
                 CREATE UNIQUE INDEX account_move_unique_l10n_do_fiscal_number_purchase_internal
                 ON account_move(l10n_do_fiscal_number, company_id)
                 WHERE (l10n_latam_document_type_id IS NOT NULL AND move_type IN ('in_invoice', 'in_refund', 'in_receipt')
@@ -383,7 +383,7 @@ class AccountMove(models.Model):
             )
             qr_string += "CodigoSeguridad=%s" % security_code
 
-            invoice.l10n_do_electronic_stamp = urls.url_quote_plus(qr_string, safe="%")
+            invoice.l10n_do_electronic_stamp = quote_plus(qr_string, safe="%")
 
         (self - l10n_do_ecf_invoice).l10n_do_electronic_stamp = False
 
@@ -570,36 +570,6 @@ class AccountMove(models.Model):
             )
 
         return super(AccountMove, self)._onchange_partner_id()
-
-    def _reverse_move_vals(self, default_values, cancel=True):
-        ctx = self.env.context
-        amount = ctx.get("amount")
-        percentage = ctx.get("percentage")
-        refund_type = ctx.get("refund_type")
-        reason = ctx.get("reason")
-        l10n_do_ecf_modification_code = ctx.get("l10n_do_ecf_modification_code")
-
-        res = super(AccountMove, self)._reverse_move_vals(
-            default_values=default_values, cancel=cancel
-        )
-        if self.country_code != "DO":
-            return res
-
-        if self.country_code == "DO":
-            res["l10n_do_origin_ncf"] = self.l10n_do_fiscal_number or self.ref
-            res["l10n_do_ecf_modification_code"] = l10n_do_ecf_modification_code
-
-        if refund_type in ("percentage", "fixed_amount"):
-            price_unit = (
-                amount
-                if refund_type == "fixed_amount"
-                else self.amount_untaxed * (percentage / 100)
-            )
-            res["line_ids"] = False
-            res["invoice_line_ids"] = [
-                (0, 0, {"name": reason or _("Refund"), "price_unit": price_unit})
-            ]
-        return res
 
     @api.depends("l10n_latam_document_type_id", "journal_id")
     def _compute_l10n_latam_manual_document_number(self):
@@ -872,14 +842,12 @@ class AccountMove(models.Model):
     # date and prevent the `l10n_latam_document_number` field from being reset
     @api.model
     def _deduce_sequence_number_reset(self, name):
+        if self._context.get("is_l10n_do_seq", False):
+            return "never"
         if (
             self.l10n_latam_use_documents
             and self.company_id.country_id.code == "DO"
             and self.posted_before
-            and not self._context.get("is_l10n_do_seq", False)
         ):
             return "year"
-        elif self._context.get("is_l10n_do_seq", False):
-            return "never"
-        else:
-            return super(AccountMove, self)._deduce_sequence_number_reset(name)
+        return super(AccountMove, self)._deduce_sequence_number_reset(name)

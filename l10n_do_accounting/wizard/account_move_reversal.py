@@ -1,4 +1,4 @@
-from odoo import models, api, fields, _
+from odoo import models, api, fields, _, Command
 from odoo.exceptions import UserError
 
 
@@ -25,20 +25,6 @@ class AccountMoveReversal(models.TransientModel):
             ("draft_refund", _("Partial Refund")),
             ("apply_refund", _("Full Refund")),
         ]
-
-    @api.model
-    def _default_account(self):
-        move_type = self._context.get("move_type")
-        journal = (
-            self.env["account.move"]
-            .with_context(
-                default_type=move_type, default_company_id=self.env.company.id
-            )
-            ._get_default_journal()
-        )
-        if move_type in ("out_invoice", "in_refund"):
-            return journal.default_credit_account_id.id
-        return journal.default_debit_account_id.id
 
     country_code = fields.Char(
         related="company_id.country_code",
@@ -112,7 +98,7 @@ class AccountMoveReversal(models.TransientModel):
                 result.update(
                     {
                         "l10n_latam_document_type_id": self.l10n_latam_document_type_id.id,
-                        "line_ids": [(5, 0, 0)],
+                        "line_ids": [Command.clear()],
                     }
                 )
 
@@ -122,24 +108,24 @@ class AccountMoveReversal(models.TransientModel):
                     else move.amount_untaxed * (self.l10n_do_percentage / 100)
                 )
                 result["invoice_line_ids"] = [
-                    (
-                        0,
-                        0,
+                    Command.create(
                         {
                             "name": self.reason or _("Credit"),
                             "price_unit": price_unit,
                             "quantity": 1,
-                        },
+                        }
                     )
                 ]
 
         return result
 
     @api.depends("move_ids", "journal_id")
-    def _compute_document_type(self):
-        self.l10n_latam_available_document_type_ids = False
-        self.l10n_latam_document_type_id = False
-        self.l10n_latam_use_documents = False
+    def _compute_documents_info(self):
+        """
+        Override of l10n_latam_invoice_document to add DO-specific logic:
+        populate `is_ecf_invoice` from company settings alongside the standard
+        `l10n_latam_use_documents` / `l10n_latam_available_document_type_ids` computation.
+        """
         do_wizard = self.filtered(
             lambda w: w.journal_id
             and w.journal_id.l10n_latam_use_documents
@@ -159,12 +145,8 @@ class AccountMoveReversal(models.TransientModel):
                         % ", ".join(move_ids_use_document.mapped("name"))
                     )
             else:
-                record.write(
-                    {
-                        "l10n_latam_use_documents": record.journal_id.l10n_latam_use_documents,
-                        "is_ecf_invoice": record.company_id.l10n_do_ecf_issuer,
-                    }
-                )
+                record.l10n_latam_use_documents = record.journal_id.l10n_latam_use_documents
+                record.is_ecf_invoice = record.company_id.l10n_do_ecf_issuer
 
             if record.l10n_latam_use_documents:
                 refund = record.env["account.move"].new(
@@ -175,10 +157,20 @@ class AccountMoveReversal(models.TransientModel):
                         "journal_id": record.journal_id.id,
                         "partner_id": record.move_ids.partner_id.id,
                         "company_id": record.move_ids.company_id.id,
+                        "reversed_entry_id": record.move_ids.id,
                     }
                 )
-                record.l10n_latam_document_type_id = refund.l10n_latam_document_type_id
                 record.l10n_latam_available_document_type_ids = (
                     refund.l10n_latam_available_document_type_ids
                 )
-        super(AccountMoveReversal, self - do_wizard)._compute_document_type()
+
+        super(AccountMoveReversal, self - do_wizard)._compute_documents_info()
+
+    @api.depends("l10n_latam_available_document_type_ids", "journal_id")
+    def _compute_document_type(self):
+        """
+        Delegate to super for all records (core l10n_latam_invoice_document handles
+        the assignment of the first available document type). DO-specific availability
+        is already handled in _compute_documents_info.
+        """
+        super()._compute_document_type()
