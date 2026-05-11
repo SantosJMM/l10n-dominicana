@@ -65,9 +65,26 @@ class AccountDebitNote(models.TransientModel):
         string="Is Electronic Invoice",
     )
     l10n_latam_use_documents = fields.Boolean("Use Documents", readonly=True)
+    l10n_latam_manual_document_number = fields.Boolean(
+        compute="_compute_l10n_latam_manual_document_number",
+        string="Manual Number",
+    )
     l10n_latam_document_type_id = fields.Many2one(
         "l10n_latam.document.type", "Document Type", ondelete="cascade"
     )
+
+    @api.depends("move_ids", "l10n_latam_use_documents", "l10n_latam_country_code")
+    def _compute_l10n_latam_manual_document_number(self):
+        self.l10n_latam_manual_document_number = False
+        l10n_do_recs = self.filtered(
+            lambda r: r.move_ids
+            and r.l10n_latam_use_documents
+            and r.l10n_latam_country_code == "DO"
+        )
+        for rec in l10n_do_recs:
+            rec.l10n_latam_manual_document_number = (
+                rec.move_ids[0].l10n_latam_manual_document_number
+            )
 
     @api.model
     def default_get(self, fields):
@@ -206,8 +223,19 @@ class AccountDebitNote(models.TransientModel):
     def create_debit(self):
         action = super(AccountDebitNote, self).create_debit()
         if self.l10n_do_debit_action == "apply_debit":
-            # Post Debit Note
             move_id = self.env["account.move"].browse(action.get("res_id", False))
+            if (
+                move_id
+                and move_id.l10n_latam_manual_document_number
+                and not move_id.l10n_latam_document_number
+            ):
+                raise UserError(
+                    _(
+                        "The Debit Note cannot be posted without a fiscal document "
+                        "number. Please set the document number before posting."
+                    )
+                )
+            # Post Debit Note
             move_id._post()
 
         return action
