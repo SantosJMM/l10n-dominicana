@@ -8,7 +8,9 @@
             <field name="restrict_mode_hash_table" position="after">
                 <!-- Legacy fields -->
                 <field name="fiscal_sequence_status" invisible="1"/>
+                <field name="is_l10n_do_fiscal_invoice" invisible="1"/>
                 <field name="is_debit_note" invisible="1"/>
+                <field name="fiscal_type_id" invisible="1"/>
                 <field name="fiscal_sequence_id" invisible="1"/>
 
                 <field name="is_ecf_invoice" invisible="1"/>

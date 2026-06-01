@@ -145,6 +145,13 @@ class AccountMove(models.Model):
         comodel_name="account.fiscal.type",
         index=True,
     )
+    fiscal_sequence_id = fields.Many2one(
+        comodel_name="account.fiscal.sequence",
+        string="Fiscal Sequence",
+        copy=False,
+        compute="_compute_fiscal_sequence",
+        store=True,
+    )
 
     _sql_constraints = [
         (
@@ -192,6 +199,23 @@ class AccountMove(models.Model):
                 and inv.l10n_latam_document_type_id
                 and inv.country_code == "DO"
             )
+
+    @api.depends(
+        "journal_id",
+        "is_l10n_do_fiscal_invoice",
+        "state",
+        "fiscal_type_id",
+        "invoice_date",
+        "move_type",
+        "is_debit_note",
+    )
+    def _compute_fiscal_sequence(self):
+        for inv in self:
+            if inv.is_l10n_do_fiscal_invoice and inv.fiscal_type_id:
+                fiscal_sequence = inv.fiscal_type_id._get_queued_fiscal_sequence()
+                inv.fiscal_sequence_id = fiscal_sequence
+            else:
+                inv.fiscal_sequence_id = False
 
     # ------------------------------------------------------------------
 
