@@ -125,6 +125,84 @@ class AccountMove(models.Model):
     )
 
     # Legacy fields
+    fiscal_type_id = fields.Many2one(
+        string="Fiscal type",
+        comodel_name="account.fiscal.type",
+        index=True,
+    )
+    available_fiscal_type_ids = fields.Many2many(
+        string="Available Fiscal Type",
+        comodel_name="account.fiscal.type",
+        compute="_compute_available_fiscal_type",
+    )
+    fiscal_sequence_id = fields.Many2one(
+        comodel_name="account.fiscal.sequence",
+        string="Fiscal Sequence",
+        copy=False,
+        compute="_compute_fiscal_sequence",
+        store=True,
+    )
+    income_type = fields.Selection(
+        string="Income Type",
+        selection=[
+            ("01", "01 - Operating Revenues (Non-Financial)"),
+            ("02", "02 - Financial Revenues"),
+            ("03", "03 - Extraordinary Revenues"),
+            ("04", "04 - Rental Revenues"),
+            ("05", "05 - Revenues from Sale of Depreciable Assets"),
+            ("06", "06 - Other Revenues"),
+        ],
+        copy=False,
+        default=lambda self: self._context.get("income_type", "01"),
+    )
+    expense_type = fields.Selection(
+        copy=False,
+        selection=[
+            ("01", "01 - Personnel Expenses"),
+            ("02", "02 - Expenses for Labor, Supplies, and Services"),
+            ("03", "03 - Leases"),
+            ("04", "04 - Fixed Asset Expenses"),
+            ("05", "05 - Representation Expenses"),
+            ("06", "06 - Other Allowable Deductions"),
+            ("07", "07 - Financial Expenses"),
+            ("08", "08 - Extraordinary Expenses"),
+            ("09", "09 - Purchases and Expenses that form part of the Cost of Sales"),
+            ("10", "10 - Acquisitions of Assets"),
+            ("11", "11 - Insurance Expenses"),
+        ],
+        string="Cost & Expense Type",
+    )
+    annulation_type = fields.Selection(
+        string="Annulment Type",
+        selection=[
+            ("01", "01 - Deterioration of Pre-printed Invoice"),
+            ("02", "02 - Printing Errors (Pre-printed Invoice)"),
+            ("03", "03 - Defective Printing"),
+            ("04", "04 - Correction of Information"),
+            ("05", "05 - Change of Products"),
+            ("06", "06 - Product Returns"),
+            ("07", "07 - Omission of Products"),
+            ("08", "08 - Errors in Sequence of NCF"),
+            ("09", "09 - Due to Cessation of Operations"),
+            ("10", "10 - Loss or Theft of Invoice Books"),
+        ],
+        copy=False,
+    )
+    origin_out = fields.Char(
+        string="Affects",
+        copy=False,
+    )
+    ncf_expiration_date = fields.Date(
+        string="Valid until", store=True, copy=False, required=False
+    )
+    is_l10n_do_fiscal_invoice = fields.Boolean(
+        string="Is Fiscal Invoice",
+        compute="_compute_is_l10n_do_fiscal_invoice",
+        store=True,
+    )
+    assigned_sequence = fields.Boolean(
+        related="fiscal_type_id.assigned_sequence",
+    )
     fiscal_sequence_status = fields.Selection(
         selection=[
             ("no_fiscal", "No fiscal"),
@@ -134,32 +212,7 @@ class AccountMove(models.Model):
         ],
         compute="_compute_fiscal_sequence_status",
     )
-    is_debit_note = fields.Boolean("Is debit note")
-    is_l10n_do_fiscal_invoice = fields.Boolean(
-        string="Is Fiscal Invoice",
-        compute="_compute_is_l10n_do_fiscal_invoice",
-        store=True,
-    )
-    fiscal_type_id = fields.Many2one(
-        string="Fiscal type",
-        comodel_name="account.fiscal.type",
-        index=True,
-    )
-    fiscal_sequence_id = fields.Many2one(
-        comodel_name="account.fiscal.sequence",
-        string="Fiscal Sequence",
-        copy=False,
-        compute="_compute_fiscal_sequence",
-        store=True,
-    )
-    assigned_sequence = fields.Boolean(
-        related="fiscal_type_id.assigned_sequence",
-    )
-    available_fiscal_type_ids = fields.Many2many(
-        string="Available Fiscal Type",
-        comodel_name="account.fiscal.type",
-        compute="_compute_available_fiscal_type",
-    )
+    is_debit_note = fields.Boolean(string="Is debit note")
 
     _sql_constraints = [
         (
