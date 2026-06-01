@@ -13,6 +13,14 @@
             <xpath expr="//field[@name='property_supplier_payment_term_id']" position="after">
                 <field name="l10n_do_expense_type"/>
             </xpath>
+
+            <group name="sale" position ="inside">
+                <field name="sale_fiscal_type_id" invisible="1"/>
+            </group>
+            <group name="purchase" position ="inside">
+                <field name="expense_type" invisible="1"/>
+                <field name="purchase_fiscal_type_id" invisible="1"/>
+            </group>
         </field>
     </record>
 

@@ -121,6 +121,64 @@ class Partner(models.Model):
 
     is_fiscal_info_required = fields.Boolean(compute="_compute_is_fiscal_info_required")
 
+    def _get_fiscal_type_domain(self, prefix):
+        fiscal_type = self.env["account.fiscal.type"].search(
+            [
+                ("type", "=", "out_invoice"),
+                ("prefix", "=", prefix),
+            ],
+            limit=1,
+        )
+
+        return fiscal_type
+
+    @api.depends("vat", "country_id", "name")
+    def _compute_sale_fiscal_type_id(self):
+        """Compute the type of partner depending on soft decisions"""
+
+        for partner in self:
+            vat = str(partner.vat) if partner.vat else False
+            is_dominican_partner = bool(partner.country_id == self.env.ref("base.do"))
+
+            if not is_dominican_partner:
+                partner.sale_fiscal_type_id = self._get_fiscal_type_domain("B16")
+
+            elif vat:
+                if vat.isdigit() and len(vat) == 9:
+                    if partner.name and "MINISTERIO" in partner.name:
+                        partner.sale_fiscal_type_id = self._get_fiscal_type_domain(
+                            "B15"
+                        )
+
+                    elif partner.name and any(
+                        [n for n in ("IGLESIA", "ZONA FRANCA") if n in partner.name]
+                    ):
+                        partner.sale_fiscal_type_id = self._get_fiscal_type_domain(
+                            "B14"
+                        )
+
+                    else:
+                        partner.sale_fiscal_type_id = self._get_fiscal_type_domain(
+                            "B01"
+                        )
+
+                else:
+                    partner.sale_fiscal_type_id = self._get_fiscal_type_domain("B02")
+
+            else:
+                partner.sale_fiscal_type_id = partner.sale_fiscal_type_id
+
+    def _inverse_sale_fiscal_type_id(self):
+        pass
+
+    @api.model
+    def get_sale_fiscal_type_id_selection(self):
+        return {
+            "sale_fiscal_type_id": self.sale_fiscal_type_id.id,
+            "sale_fiscal_type_list": self.sale_fiscal_type_list,
+            "sale_fiscal_type_vat": self.sale_fiscal_type_vat,
+        }
+
     # -----------------------
 
     def _check_l10n_do_fiscal_fields(self, vals):
