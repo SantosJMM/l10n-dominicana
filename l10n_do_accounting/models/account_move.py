@@ -134,6 +134,7 @@ class AccountMove(models.Model):
         ],
         compute="_compute_fiscal_sequence_status",
     )
+    is_debit_note = fields.Boolean("Is debit note")
 
     _sql_constraints = [
         (
