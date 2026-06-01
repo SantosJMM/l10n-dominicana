@@ -4,6 +4,8 @@
 
 
 def post_init_hook(env):
+    # Backfill tax metadata for DO companies that already had the chart loaded
+    # before this module was installed.
     companies = env["res.company"].search([("chart_template", "=", "do")])
 
     for company in companies:

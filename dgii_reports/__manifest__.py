@@ -28,7 +28,6 @@
     # always loaded
     'data': [
         'data/invoice_service_type_detail_data.xml',
-        'data/account_tax_data.xml',
         'security/ir.model.access.csv',
         'security/ir_rule.xml',
         'views/res_partner_views.xml',
