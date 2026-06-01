@@ -152,6 +152,9 @@ class AccountMove(models.Model):
         compute="_compute_fiscal_sequence",
         store=True,
     )
+    assigned_sequence = fields.Boolean(
+        related="fiscal_type_id.assigned_sequence",
+    )
 
     _sql_constraints = [
         (
