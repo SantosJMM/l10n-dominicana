@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="invoice_form_inherited" model="ir.ui.view">
+        <field name="name">invoice.form.inherited</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//group[@id='header_right_group']" position="after">
+                <group invisible="move_type not in ['in_invoice', 'in_refund']">
+                    <field name="is_exterior" invisible="1"/>
+                    <field name="service_type" invisible="not is_exterior" required="is_exterior"/>
+                    <field name="service_type_detail" options="{'no_create': True, 'no_open': True}"
+                           invisible="not is_exterior"
+                           readonly="not service_type"
+                           required="service_type"/>
+                </group>
+                
+            </xpath>
+
+            <xpath expr="//page[@name='other_info']" position="after">
+                <page name="dgii_fields" string="DGII" groups="account.group_account_user">
+                    <group invisible="move_type not in ['out_invoice', 'out_refund']">
+                        <group string="Withholding" groups="account.group_account_manager">
+                            <field name="payment_date"/>
+                            <field name="withholding_itbis"/>
+                            <field name="income_withholding"/>
+                        </group>
+                        <group string="Taxes" groups="account.group_account_manager">
+                            <field name="invoiced_itbis"/>
+                            <field name="selective_tax"/>
+                            <field name="other_taxes"/>
+                            <field name="legal_tip"/>
+                        </group>
+                        <group string="607">
+                            <field name="fiscal_status" widget="state_selection" readonly="0" options="{'hide_label': False}"/>
+                        </group>
+                    </group>
+
+                    <group invisible="move_type not in ['in_invoice', 'in_refund']">
+                        <group string="Taxes" groups="account.group_account_manager">
+                            <field name="invoiced_itbis"/>
+                            <field name="proportionality_tax"/>
+                            <field name="cost_itbis"/>
+                            <field name="advance_itbis"/>
+                            <field name="selective_tax"/>
+                            <field name="other_taxes"/>
+                            <field name="legal_tip"/>
+                        </group>
+                        <group string="Invoicing" groups="account.group_account_manager">
+                            <field name="payment_date"/>
+                            <field name="payment_form"/>
+                            <field name="service_total_amount"/>
+                            <field name="good_total_amount"/>
+                        </group>
+                        <group string="Withholding" groups="account.group_account_manager">
+                            <field name="withholding_itbis"/>
+                            <field name="isr_withholding_type"/>
+                            <field name="income_withholding"/>
+                        </group>
+                        <group string="606">
+                            <field name="fiscal_status" widget="state_selection" readonly="0" options="{'hide_label': False}"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="invoice_tree_inherited" model="ir.ui.view">
+        <field name="name">invoice.tree.inherited</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_invoice_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="fiscal_status" widget="state_selection" readonly="1" options="{'hide_label': False}" optional="hide" />
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
