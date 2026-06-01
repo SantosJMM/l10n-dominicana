@@ -28,6 +28,21 @@ class AccountJournal(models.Model):
         copy=False,
     )
 
+    # Legacy fields
+    l10n_do_fiscal_journal = fields.Boolean("Fiscal Journal")
+    payment_form = fields.Selection(
+        string="Payment Form",
+        selection=[
+            ("cash", "Cash"),
+            ("bank", "Check / Transfer"),
+            ("card", "Credit Card"),
+            ("credit", "Credit"),
+            ("swap", "Swap"),
+            ("bond", "Bonds or Gift Certificate"),
+            ("others", "Other Sale Type"),
+        ],
+    )
+
     def _get_all_ncf_types(self, types_list, invoice=False):
         """
         Include ECF type prefixes if company is ECF issuer
@@ -174,8 +189,12 @@ class AccountJournal(models.Model):
         ]
         documents = self.env["l10n_latam.document.type"].search(domain)
         for document in documents.filtered(
-            lambda doc: doc.l10n_do_ncf_type
-            not in document_types.l10n_latam_document_type_id.mapped("l10n_do_ncf_type")
+            lambda doc: (
+                doc.l10n_do_ncf_type
+                not in document_types.l10n_latam_document_type_id.mapped(
+                    "l10n_do_ncf_type"
+                )
+            )
         ):
             document_types |= (
                 self.env["l10n_do.account.journal.document_type"]
