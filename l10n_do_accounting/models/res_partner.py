@@ -49,10 +49,79 @@ class Partner(models.Model):
     )
     country_id = fields.Many2one(
         comodel_name="res.country",
-        default=lambda self: self.env.ref("base.do")
-        if self.env.company.country_id == self.env.ref("base.do")
-        else False,
+        default=lambda self: (
+            self.env.ref("base.do")
+            if self.env.company.country_id == self.env.ref("base.do")
+            else False
+        ),
     )
+
+    # ---- Legacy Fields ----
+
+    @api.depends("sale_fiscal_type_id")
+    def _compute_is_fiscal_info_required(self):
+        for rec in self:
+            if rec.sale_fiscal_type_id.prefix in ["B01", "B14", "B15"]:
+                rec.is_fiscal_info_required = True
+            else:
+                rec.is_fiscal_info_required = False
+
+    sale_fiscal_type_id = fields.Many2one(
+        "account.fiscal.type",
+        string="Sale Fiscal Type",
+        domain=[("type", "=", "out_invoice")],
+        compute="_compute_sale_fiscal_type_id",
+        inverse="_inverse_sale_fiscal_type_id",
+        index=True,
+        store=True,
+    )
+
+    sale_fiscal_type_list = [
+        {
+            "id": "final",
+            "name": "Consumo",
+            "ticket_label": "Consumo",
+            "is_default": True,
+        },
+        {"id": "fiscal", "name": "Crédito Fiscal"},
+        {"id": "gov", "name": "Gubernamental"},
+        {"id": "special", "name": "Regímenes Especiales"},
+        {"id": "unico", "name": "Único Ingreso"},
+        {"id": "export", "name": "Exportaciones"},
+    ]
+
+    sale_fiscal_type_vat = {
+        "rnc": ["fiscal", "gov", "special"],
+        "ced": ["final", "fiscal"],
+        "other": ["final"],
+        "no_vat": ["final", "unico", "export"],
+    }
+
+    purchase_fiscal_type_id = fields.Many2one(
+        "account.fiscal.type",
+        string="Purchase Fiscal Type",
+        domain=[("type", "=", "in_invoice")],
+    )
+    expense_type = fields.Selection(
+        [
+            ("01", "01 - Gastos de Personal"),
+            ("02", "02 - Gastos por Trabajo, Suministros y Servicios"),
+            ("03", "03 - Arrendamientos"),
+            ("04", "04 - Gastos de Activos Fijos"),
+            ("05", "05 - Gastos de Representación"),
+            ("06", "06 - Otras Deducciones Admitidas"),
+            ("07", "07 - Gastos Financieros"),
+            ("08", "08 - Gastos Extraordinarios"),
+            ("09", "09 - Compras y Gastos que forman parte del Costo de Venta"),
+            ("10", "10 - Adquisiciones de Activos"),
+            ("11", "11 - Gastos de Seguro"),
+        ],
+        string="Expense Type",
+    )
+
+    is_fiscal_info_required = fields.Boolean(compute="_compute_is_fiscal_info_required")
+
+    # -----------------------
 
     def _check_l10n_do_fiscal_fields(self, vals):
         if not self or self.parent_id:
