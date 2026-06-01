@@ -1,4 +1,4 @@
-from odoo import models
+from odoo import models, api
 
 
 DOMINICAN_TAX_CONFIGS = (
@@ -39,6 +39,7 @@ DOMINICAN_TAX_CONFIGS = (
 class ResCompany(models.Model):
     _inherit = "res.company"
 
+    @api.model
     def _l10n_do_configure_dgii_tax_types(self):
         tax_model = self.env["account.tax"]
         if "l10n_do_tax_type" not in tax_model._fields:
