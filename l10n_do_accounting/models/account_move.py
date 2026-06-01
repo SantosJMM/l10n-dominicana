@@ -135,6 +135,11 @@ class AccountMove(models.Model):
         compute="_compute_fiscal_sequence_status",
     )
     is_debit_note = fields.Boolean("Is debit note")
+    is_l10n_do_fiscal_invoice = fields.Boolean(
+        string="Is Fiscal Invoice",
+        compute="_compute_is_l10n_do_fiscal_invoice",
+        store=True,
+    )
 
     _sql_constraints = [
         (
@@ -173,6 +178,17 @@ class AccountMove(models.Model):
                 inv.fiscal_sequence_status = "fiscal_ok"
             else:
                 inv.fiscal_sequence_status = "no_fiscal"
+
+    @api.depends("state", "journal_id")
+    def _compute_is_l10n_do_fiscal_invoice(self):
+        for inv in self:
+            inv.is_l10n_do_fiscal_invoice = (
+                inv.l10n_latam_use_documents
+                and inv.l10n_latam_document_type_id
+                and inv.country_code == "DO"
+            )
+
+    # ------------------------------------------------------------------
 
     def _auto_init(self):
         if not index_exists(
