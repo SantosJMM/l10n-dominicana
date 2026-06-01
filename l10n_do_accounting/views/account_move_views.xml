@@ -6,6 +6,9 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <field name="restrict_mode_hash_table" position="after">
+                <!-- Legacy fields -->
+                <field name="fiscal_sequence_status" invisible="1"/>
+
                 <field name="is_ecf_invoice" invisible="1"/>
                 <field name="l10n_do_company_in_contingency" invisible="1"/>
                 <field name="l10n_do_enable_first_sequence" invisible="1" force_save="1"/>

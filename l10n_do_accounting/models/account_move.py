@@ -124,6 +124,17 @@ class AccountMove(models.Model):
         "manually because a new expiration date was set on journal",
     )
 
+    # Legacy fields
+    fiscal_sequence_status = fields.Selection(
+        selection=[
+            ("no_fiscal", "No fiscal"),
+            ("fiscal_ok", "Ok"),
+            ("almost_no_sequence", "Almost no sequence"),
+            ("no_sequence", "Depleted"),
+        ],
+        compute="_compute_fiscal_sequence_status",
+    )
+
     _sql_constraints = [
         (
             "unique_l10n_do_fiscal_number_sales",
@@ -141,6 +152,26 @@ class AccountMove(models.Model):
             "Another document for the same partner with the same fiscal number already exists.",
         ),
     ]
+
+    # ------------------------------------------------------------------
+    # Legacy computed fields, deprecated functions, etc.
+    # ------------------------------------------------------------------
+
+    @api.depends("state", "journal_id")
+    def _compute_fiscal_sequence_status(self):
+        """Identify the percentage fiscal sequences that has been used so far.
+        With this result the user can be warned if it's above the threshold
+        or if there's no more sequences available.
+        """
+        for inv in self:
+            if (
+                inv.l10n_latam_use_documents
+                and inv.l10n_latam_document_type_id
+                and inv.country_code == "DO"
+            ):
+                inv.fiscal_sequence_status = "fiscal_ok"
+            else:
+                inv.fiscal_sequence_status = "no_fiscal"
 
     def _auto_init(self):
         if not index_exists(
@@ -161,9 +192,14 @@ class AccountMove(models.Model):
                 create_column(
                     self.env.cr, "account_move", "l10n_do_fiscal_number", "varchar"
                 )
-            if not column_exists(self.env.cr, "account_move", "l10n_latam_manual_document_number"):
+            if not column_exists(
+                self.env.cr, "account_move", "l10n_latam_manual_document_number"
+            ):
                 create_column(
-                    self.env.cr, "account_move", "l10n_latam_manual_document_number", "varchar"
+                    self.env.cr,
+                    "account_move",
+                    "l10n_latam_manual_document_number",
+                    "varchar",
                 )
 
             self.env.cr.execute(
@@ -190,13 +226,18 @@ class AccountMove(models.Model):
         return super()._auto_init()
 
     @api.model
-    def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
+    def _name_search(self, name, domain=None, operator="ilike", limit=None, order=None):
         if name:
-            domain = expression.AND([[
-                "|",
-                ("name", operator, name),
-                ("l10n_do_fiscal_number", operator, name),
-            ], domain])
+            domain = expression.AND(
+                [
+                    [
+                        "|",
+                        ("name", operator, name),
+                        ("l10n_do_fiscal_number", operator, name),
+                    ],
+                    domain,
+                ]
+            )
         return super()._name_search(name, domain, operator, limit, order)
 
     def _l10n_do_is_new_expiration_date(self):
@@ -227,11 +268,13 @@ class AccountMove(models.Model):
     @api.depends("l10n_do_ncf_expiration_date", "journal_id")
     def _compute_l10n_do_show_expiration_date_msg(self):
         l10n_do_internal_invoices = self.filtered(
-            lambda inv: inv.l10n_latam_use_documents
-            and inv.l10n_latam_document_type_id
-            and inv.country_code == "DO"
-            and not inv.l10n_latam_manual_document_number
-            and inv.l10n_do_ncf_expiration_date
+            lambda inv: (
+                inv.l10n_latam_use_documents
+                and inv.l10n_latam_document_type_id
+                and inv.country_code == "DO"
+                and not inv.l10n_latam_manual_document_number
+                and inv.l10n_do_ncf_expiration_date
+            )
         )
         for invoice in l10n_do_internal_invoices:
             invoice.l10n_do_show_expiration_date_msg = (
@@ -252,10 +295,12 @@ class AccountMove(models.Model):
         if no invoice of same document type was posted before
         """
         l10n_do_internal_invoices = self.filtered(
-            lambda inv: inv.l10n_latam_use_documents
-            and inv.l10n_latam_document_type_id
-            and inv.country_code == "DO"
-            and not inv.l10n_latam_manual_document_number
+            lambda inv: (
+                inv.l10n_latam_use_documents
+                and inv.l10n_latam_document_type_id
+                and inv.country_code == "DO"
+                and not inv.l10n_latam_manual_document_number
+            )
         )
         for invoice in l10n_do_internal_invoices:
             invoice.l10n_do_enable_first_sequence = (
@@ -325,10 +370,12 @@ class AccountMove(models.Model):
     @api.depends("l10n_do_ecf_security_code", "l10n_do_ecf_sign_date", "invoice_date")
     def _compute_l10n_do_electronic_stamp(self):
         l10n_do_ecf_invoice = self.filtered(
-            lambda i: i.is_ecf_invoice
-            and not i.l10n_latam_manual_document_number
-            and i.l10n_do_ecf_security_code
-            and i.state == "posted"
+            lambda i: (
+                i.is_ecf_invoice
+                and not i.l10n_latam_manual_document_number
+                and i.l10n_do_ecf_security_code
+                and i.state == "posted"
+            )
         )
 
         for invoice in l10n_do_ecf_invoice:
@@ -392,11 +439,13 @@ class AccountMove(models.Model):
     )
     def _l10n_do_check_unique_vendor_number(self):
         for rec in self.filtered(
-            lambda inv: inv.l10n_do_fiscal_number
-            and inv.country_code == "DO"
-            and inv.l10n_latam_use_documents
-            and inv.is_purchase_document()
-            and inv.commercial_partner_id
+            lambda inv: (
+                inv.l10n_do_fiscal_number
+                and inv.country_code == "DO"
+                and inv.l10n_latam_use_documents
+                and inv.is_purchase_document()
+                and inv.commercial_partner_id
+            )
         ):
             domain = [
                 ("move_type", "=", rec.move_type),
@@ -425,9 +474,11 @@ class AccountMove(models.Model):
 
     def button_cancel(self):
         fiscal_invoice = self.filtered(
-            lambda inv: inv.country_code == "DO"
-            and self.move_type[-6:] in ("nvoice", "refund")
-            and inv.l10n_latam_use_documents
+            lambda inv: (
+                inv.country_code == "DO"
+                and self.move_type[-6:] in ("nvoice", "refund")
+                and inv.l10n_latam_use_documents
+            )
         )
         not_ecf_fiscal_invoice = fiscal_invoice.filtered(lambda i: not i.is_ecf_invoice)
 
@@ -466,8 +517,9 @@ class AccountMove(models.Model):
 
     def action_reverse(self):
         fiscal_invoice = self.filtered(
-            lambda inv: inv.country_code == "DO"
-            and self.move_type[-6:] in ("nvoice", "refund")
+            lambda inv: (
+                inv.country_code == "DO" and self.move_type[-6:] in ("nvoice", "refund")
+            )
         )
         if fiscal_invoice and not self.env.user.has_group(
             "l10n_do_accounting.group_l10n_do_fiscal_credit_note"
@@ -531,10 +583,12 @@ class AccountMove(models.Model):
     @api.constrains("move_type", "l10n_latam_document_type_id")
     def _check_invoice_type_document_type(self):
         l10n_do_invoices = self.filtered(
-            lambda inv: inv.country_code == "DO"
-            and inv.l10n_latam_use_documents
-            and inv.l10n_latam_document_type_id
-            and inv.state == "posted"
+            lambda inv: (
+                inv.country_code == "DO"
+                and inv.l10n_latam_use_documents
+                and inv.l10n_latam_document_type_id
+                and inv.state == "posted"
+            )
         )
         for rec in l10n_do_invoices:
             has_vat = bool(rec.partner_id.vat and bool(rec.partner_id.vat.strip()))
@@ -574,10 +628,12 @@ class AccountMove(models.Model):
     @api.depends("l10n_latam_document_type_id", "journal_id")
     def _compute_l10n_latam_manual_document_number(self):
         l10n_do_recs_with_journal_id = self.filtered(
-            lambda x: x.journal_id
-            and x.journal_id.l10n_latam_use_documents
-            and x.l10n_latam_document_type_id
-            and x.country_code == "DO"
+            lambda x: (
+                x.journal_id
+                and x.journal_id.l10n_latam_use_documents
+                and x.l10n_latam_document_type_id
+                and x.country_code == "DO"
+            )
         )
         for move in l10n_do_recs_with_journal_id:
             move.l10n_latam_manual_document_number = (
@@ -586,8 +642,10 @@ class AccountMove(models.Model):
 
             move.l10n_do_ncf_expiration_date = (
                 move.journal_id.l10n_do_document_type_ids.filtered(
-                    lambda doc: doc.l10n_latam_document_type_id
-                    == move.l10n_latam_document_type_id
+                    lambda doc: (
+                        doc.l10n_latam_document_type_id
+                        == move.l10n_latam_document_type_id
+                    )
                 ).l10n_do_ncf_expiration_date
             )
 
@@ -631,8 +689,10 @@ class AccountMove(models.Model):
         res = super()._post(soft)
 
         l10n_do_invoices = self.filtered(
-            lambda inv: inv.company_id.country_id == self.env.ref("base.do")
-            and inv.l10n_latam_use_documents
+            lambda inv: (
+                inv.company_id.country_id == self.env.ref("base.do")
+                and inv.l10n_latam_use_documents
+            )
         )
 
         for invoice in l10n_do_invoices.filtered(
@@ -672,10 +732,7 @@ class AccountMove(models.Model):
         )
 
     def _get_starting_sequence(self):
-        if (
-            self.journal_id.l10n_latam_use_documents
-            and self.country_code == "DO"
-        ):
+        if self.journal_id.l10n_latam_use_documents and self.country_code == "DO":
             return self._l10n_do_get_formatted_sequence()
 
         return super()._get_starting_sequence()
@@ -811,10 +868,10 @@ class AccountMove(models.Model):
             or self.state != "draft"
             and not self[self._l10n_do_sequence_field]
         ):
-            self[
-                self._l10n_do_sequence_field
-            ] = self.l10n_latam_document_type_id._format_document_number(
-                format.format(**format_values)
+            self[self._l10n_do_sequence_field] = (
+                self.l10n_latam_document_type_id._format_document_number(
+                    format.format(**format_values)
+                )
             )
         self._compute_split_sequence()
 
@@ -828,10 +885,12 @@ class AccountMove(models.Model):
 
     def unlink(self):
         if self.filtered(
-            lambda inv: inv.is_purchase_document()
-            and inv.country_code == "DO"
-            and inv.l10n_latam_use_documents
-            and inv.posted_before
+            lambda inv: (
+                inv.is_purchase_document()
+                and inv.country_code == "DO"
+                and inv.l10n_latam_use_documents
+                and inv.posted_before
+            )
         ):
             raise UserError(
                 _("You cannot delete fiscal invoice which have been posted before")
