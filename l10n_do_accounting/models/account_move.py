@@ -155,6 +155,11 @@ class AccountMove(models.Model):
     assigned_sequence = fields.Boolean(
         related="fiscal_type_id.assigned_sequence",
     )
+    available_fiscal_type_ids = fields.Many2many(
+        string="Available Fiscal Type",
+        comodel_name="account.fiscal.type",
+        compute="_compute_available_fiscal_type",
+    )
 
     _sql_constraints = [
         (
@@ -219,6 +224,19 @@ class AccountMove(models.Model):
                 inv.fiscal_sequence_id = fiscal_sequence
             else:
                 inv.fiscal_sequence_id = False
+
+    def _get_fiscal_domain(self):
+        return [("type", "=", self.move_type)]
+
+    @api.depends("is_l10n_do_fiscal_invoice", "move_type", "journal_id", "partner_id")
+    def _compute_available_fiscal_type(self):
+        self.available_fiscal_type_ids = False
+        for inv in self.filtered(
+            lambda x: x.journal_id and x.is_l10n_do_fiscal_invoice and x.partner_id
+        ):
+            inv.available_fiscal_type_ids = self.env["account.fiscal.type"].search(
+                inv._get_fiscal_domain()
+            )
 
     # ------------------------------------------------------------------
 

@@ -13,6 +13,7 @@
                 <field name="fiscal_type_id" invisible="1"/>
                 <field name="fiscal_sequence_id" invisible="1"/>
                 <field name="assigned_sequence" invisible="1"/>
+                <field name="available_fiscal_type_ids" invisible="1"/>
 
                 <field name="is_ecf_invoice" invisible="1"/>
                 <field name="l10n_do_company_in_contingency" invisible="1"/>
