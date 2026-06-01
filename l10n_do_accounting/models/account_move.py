@@ -140,6 +140,11 @@ class AccountMove(models.Model):
         compute="_compute_is_l10n_do_fiscal_invoice",
         store=True,
     )
+    fiscal_type_id = fields.Many2one(
+        string="Fiscal type",
+        comodel_name="account.fiscal.type",
+        index=True,
+    )
 
     _sql_constraints = [
         (
